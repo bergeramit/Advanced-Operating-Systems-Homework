@@ -23,13 +23,6 @@ void create_pipes(Pipefd *piped_fds, int amount) {
 	}
 }
 
-void close_all_pipes(Pipefd *piped_fds, int amount) {
-	for (int i = 0; i < amount; i++) {
-		close(piped_fds[i][0]);
-		close(piped_fds[i][1]);
-	}
-}
-
 void close_pipes_range(Pipefd *piped_fds, int from, int to) {
 	for (int i = from ; i < to; i++) {
 		close(piped_fds[i][0]);
@@ -96,7 +89,7 @@ int main(int argc, char* argv[]) {
 
 	pipe_commands(argv, number_of_commands, piped_fds);
 
-	close_all_pipes(piped_fds, number_of_commands - 1);
+	close_pipes_range(piped_fds, 0, number_of_commands - 1);
 	wait_for_all_children(number_of_commands);
 
 	return 0;
