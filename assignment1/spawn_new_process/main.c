@@ -8,7 +8,7 @@
 
 typedef int Pipefd[2];
 
-void run_command(char *command) {
+void execute(char *command) {
 	char *args[3] = {command, NULL, NULL}; 
 	execvp(command, args);
 }
@@ -24,18 +24,23 @@ void create_pipes(Pipefd *piped_fds, int amount) {
 }
 
 void close_all_pipes(Pipefd *piped_fds, int amount) {
-	int i = 0;
-	for (i = 0; i < amount; i++) {
+	for (int i = 0; i < amount; i++) {
+		close(piped_fds[i][0]);
+		close(piped_fds[i][1]);
+	}
+}
+
+void close_pipes_range(Pipefd *piped_fds, int from, int to) {
+	for (int i = from ; i < to; i++) {
 		close(piped_fds[i][0]);
 		close(piped_fds[i][1]);
 	}
 }
 
 int pipe_commands(char* commands[], int number_of_commands, Pipefd *piped_fds) {
-	int i = 0, j = 0;
 	pid_t child_pid;
 
-	for (i = 0; i < number_of_commands; i++) {
+	for (int i = 0; i < number_of_commands; i++) {
 		child_pid = fork();
 
 		if (child_pid != 0) {
@@ -46,34 +51,27 @@ int pipe_commands(char* commands[], int number_of_commands, Pipefd *piped_fds) {
 			// First command to run should not direct stdin anywhere
 			dup2(piped_fds[i][1], STDOUT_FILENO);
 			close(piped_fds[i][0]);
-			for (j = 1; j < number_of_commands - 1; j++) {
-				close(piped_fds[j][0]);
-				close(piped_fds[j][1]);
-			}
+			close_pipes_range(piped_fds, 1, number_of_commands-1);
 
 		} else if (i == number_of_commands - 1) {
 			// Last command to run should not direct stdout anywhere
 			dup2(piped_fds[i-1][0], STDIN_FILENO);
 			close(piped_fds[i-1][1]);
-			for (j = 0; j < i-1; j++) {
-				close(piped_fds[j][0]);
-				close(piped_fds[j][1]);
-			}
+			close_pipes_range(piped_fds, 0, i-1);
+
 		} else {
+
 			// Should handle stdout and stdin for that process
 			dup2(piped_fds[i-1][0], STDIN_FILENO);
 			dup2(piped_fds[i][1], STDOUT_FILENO);
 			close(piped_fds[i-1][1]);
 			close(piped_fds[i][0]);
 
-			for (j = 0; j < number_of_commands - 1; j++) {
-				if (j != i && j != i-1) {
-					close(piped_fds[j][1]);
-					close(piped_fds[j][0]);
-				}
-			}
+			close_pipes_range(piped_fds, 0, i-1);
+			close_pipes_range(piped_fds, i+1, number_of_commands-1);
+
 		}
-		run_command(commands[i + 1]);
+		execute(commands[i + 1]);
 	}
 }
 
@@ -94,13 +92,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	piped_fds = (Pipefd *)malloc( (argc - 2) * sizeof(Pipefd));
-
 	create_pipes(piped_fds, number_of_commands - 1);
+
 	pipe_commands(argv, number_of_commands, piped_fds);
+
 	close_all_pipes(piped_fds, number_of_commands - 1);
 	wait_for_all_children(number_of_commands);
-
-	printf("Done!\n");
 
 	return 0;
 }
