@@ -84,7 +84,8 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	piped_fds = (Pipefd *)malloc( (argc - 2) * sizeof(Pipefd));
+	// You always have one less pipe than commands
+	piped_fds = (Pipefd *)malloc( (number_of_commands - 1) * sizeof(Pipefd));
 	create_pipes(piped_fds, number_of_commands - 1);
 
 	pipe_commands(argv, number_of_commands, piped_fds);
