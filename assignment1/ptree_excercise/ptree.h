@@ -17,5 +17,6 @@ struct prinfo {
     };
 
 typedef int (*ptree_func)(struct prinfo *buf, int *nr, int pid);
+asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid);
 int register_ptree(ptree_func func);
 void unregister_ptree(ptree_func func);
