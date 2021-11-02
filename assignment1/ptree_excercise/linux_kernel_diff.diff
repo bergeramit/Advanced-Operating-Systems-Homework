@@ -30,3 +30,57 @@ index f7c561c4d..0b2d9b1ab 100644
  /* fs/ioprio.c */
  asmlinkage long sys_ioprio_set(int which, int who, int ioprio);
  asmlinkage long sys_ioprio_get(int which, int who);
+diff --git a/kernel/Makefile b/kernel/Makefile
+index daad787fb..2088d1ce3 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -10,7 +10,7 @@ obj-y     = fork.o exec_domain.o panic.o \
+ 	    extable.o params.o \
+ 	    kthread.o sys_ni.o nsproxy.o \
+ 	    notifier.o ksysfs.o cred.o reboot.o \
+-	    async.o range.o smpboot.o ucount.o
++	    async.o range.o smpboot.o ucount.o ptree.o
+ 
+ obj-$(CONFIG_MODULES) += kmod.o
+ obj-$(CONFIG_MULTIUSER) += groups.o
+diff --git a/kernel/ptree.c b/kernel/ptree.c
+index 0b23f853a..eef62efa3 100644
+--- a/kernel/ptree.c
++++ b/kernel/ptree.c
+@@ -24,7 +24,7 @@ void unregister_ptree(ptree_func func)
+ asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid)
+ {
+ 	int rc = -1;
+-	int _nr = NULL;
++	int _nr = 0;
+ 	int bytes_copied = 0;
+ 	struct prinfo *_buf = NULL;
+ 
+@@ -45,7 +45,7 @@ asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid)
+ 		goto Exit;
+ 	}
+ 
+-	_buf = (struct prinfo*)kmalloc(_nr * sizeof(struct prinfo));
++	_buf = (struct prinfo *)kmalloc(_nr * sizeof(struct prinfo), GFP_KERNEL);
+ 	if (_buf == NULL) {
+ 		pr_crit("Failed to kmalloc\n");
+ 		rc = -ENOSYS;
+diff --git a/kernel/ptree.h b/kernel/ptree.h
+index 5182b0f08..76a0f35ed 100644
+--- a/kernel/ptree.h
++++ b/kernel/ptree.h
+@@ -1,8 +1,10 @@
+-#include <include/uapi/asm-generic/errno-base.h>
+ #include <linux/kernel.h>
+-#include <include/linux/types.h>
+-#include <include/linux/kmod.h>
+-#include <include/linux/printk.h>
++#include <linux/types.h>
++#include <linux/kmod.h>
++#include <linux/printk.h>
++#include <linux/ptrace.h>
++#include <linux/slab.h>
++
+ 
+ 
+ struct prinfo {

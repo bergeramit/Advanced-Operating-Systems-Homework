@@ -1,8 +1,10 @@
-#include <include/uapi/asm-generic/errno-base.h>
 #include <linux/kernel.h>
-#include <include/linux/types.h>
-#include <include/linux/kmod.h>
-#include <include/linux/printk.h>
+#include <linux/types.h>
+#include <linux/kmod.h>
+#include <linux/printk.h>
+#include <linux/ptrace.h>
+#include <linux/slab.h>
+
 
 
 struct prinfo {

@@ -24,7 +24,7 @@ void unregister_ptree(ptree_func func)
 asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid)
 {
 	int rc = -1;
-	int _nr = NULL;
+	int _nr = 0;
 	int bytes_copied = 0;
 	struct prinfo *_buf = NULL;
 
@@ -45,7 +45,7 @@ asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid)
 		goto Exit;
 	}
 
-	_buf = (struct prinfo*)kmalloc(_nr * sizeof(struct prinfo));
+	_buf = (struct prinfo *)kmalloc(_nr * sizeof(struct prinfo), GFP_KERNEL);
 	if (_buf == NULL) {
 		pr_crit("Failed to kmalloc\n");
 		rc = -ENOSYS;
