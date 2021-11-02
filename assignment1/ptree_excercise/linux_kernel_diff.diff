@@ -1,0 +1,32 @@
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index c29976eca..103a8dc86 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -357,6 +357,7 @@
+ 433	common	fspick			__x64_sys_fspick
+ 434	common	pidfd_open		__x64_sys_pidfd_open
+ 435	common	clone3			__x64_sys_clone3/ptregs
++449	common  ptree			__x64_sys_ptree
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index f7c561c4d..0b2d9b1ab 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -69,6 +69,7 @@ struct rseq;
+ union bpf_attr;
+ struct io_uring_params;
+ struct clone_args;
++struct prinfo;
+ 
+ #include <linux/types.h>
+ #include <linux/aio_abi.h>
+@@ -383,6 +384,7 @@ asmlinkage long sys_inotify_rm_watch(int fd, __s32 wd);
+ asmlinkage long sys_ioctl(unsigned int fd, unsigned int cmd,
+ 				unsigned long arg);
+ 
++asmlinkage int sys_ptree(struct prinfo *buf, int *nr, int pid);
+ /* fs/ioprio.c */
+ asmlinkage long sys_ioprio_set(int which, int who, int ioprio);
+ asmlinkage long sys_ioprio_get(int which, int who);

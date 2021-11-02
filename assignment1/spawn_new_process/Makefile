@@ -1,7 +1,5 @@
 
 
-
-
 all:
 	gcc ./main.c -o piper
 
