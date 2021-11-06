@@ -27,12 +27,20 @@ void print_buf(struct prinfo buf[], int size)
 
 int main(int argc, char* argv[]) {
 	int nr=4;
-        pid_t my_pid = getpid();
 	struct prinfo buf[4];
+	pid_t target_pid;
 
-	printf("pid: %d\n", my_pid);
-	printf("calling syscall 449 - ptree\n");
-	syscall(449, &buf, &nr, my_pid);
+	if (argc < 2) {
+		printf("USAGE: ./test PID\n");
+		return 0;
+	}
+
+	target_pid = (pid_t)atoi(argv[1]);
+
+	printf("Print pid of: %d\n", target_pid);
+
+	printf("calling syscall 449 - ptree from father\n");
+	syscall(449, &buf, &nr, target_pid);
 	print_buf(buf, nr);
         return 0;
 }
