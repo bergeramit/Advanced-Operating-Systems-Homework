@@ -5,93 +5,44 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
+struct prinfo {
+        pid_t parent_pid;       /* process id of parent */
+        pid_t pid;              /* process id */
+        long state;             /* current state of process */
+        uid_t uid;              /* user id of process owner */
+        char comm[16];          /* name of program executed */
+        int level;              /* level of this process in the subtree */
+};
 
-typedef int Pipefd[2];
-
-void execute(char *command) {
-	char *args[3] = {command, NULL, NULL}; 
-	execvp(command, args);
-}
-
-void create_pipes(Pipefd *piped_fds, int amount) {
-	int i = 0;
-	for (i = 0; i < amount; i++) {
-		if (pipe(piped_fds[i]) == -1) {
-		       perror("pipe");
-		       return;
-		}
-	}
-}
-
-void close_pipes_range(Pipefd *piped_fds, int from, int to) {
-	for (int i = from ; i < to; i++) {
-		close(piped_fds[i][0]);
-		close(piped_fds[i][1]);
-	}
-}
-
-int pipe_commands(char* commands[], int number_of_commands, Pipefd *piped_fds) {
-	pid_t child_pid;
-
-	for (int i = 0; i < number_of_commands; i++) {
-		child_pid = fork();
-
-		if (child_pid != 0) {
-			continue;
-		}
-
-		if (i == 0) {
-			// First command to run should not direct stdin anywhere
-			dup2(piped_fds[i][1], STDOUT_FILENO);
-			close(piped_fds[i][0]);
-			close_pipes_range(piped_fds, 1, number_of_commands-1);
-
-		} else if (i == number_of_commands - 1) {
-			// Last command to run should not direct stdout anywhere
-			dup2(piped_fds[i-1][0], STDIN_FILENO);
-			close(piped_fds[i-1][1]);
-			close_pipes_range(piped_fds, 0, i-1);
-
-		} else {
-
-			// Should handle stdout and stdin for that process
-			dup2(piped_fds[i-1][0], STDIN_FILENO);
-			dup2(piped_fds[i][1], STDOUT_FILENO);
-			close(piped_fds[i-1][1]);
-			close(piped_fds[i][0]);
-
-			close_pipes_range(piped_fds, 0, i-1);
-			close_pipes_range(piped_fds, i+1, number_of_commands-1);
-
-		}
-		execute(commands[i + 1]);
-	}
-}
-
-void wait_for_all_children(int number_of_commands) {
+void print_buf(struct prinfo buf[], int size)
+{
 	int i=0;
-	for (i=0; i<number_of_commands; i++) {
-		wait(NULL);
+	printf("[\n");
+	for(i=0; i<size; i++) {
+		printf("%d,%s,%d,%d,%ld,%d\n", buf[i].level, buf[i].comm,
+				    buf[i].pid, buf[i].parent_pid, buf[i].state, buf[i].uid);
 	}
+	printf("]\n");
 }
 
 int main(int argc, char* argv[]) {
-	Pipefd *piped_fds;
-	int number_of_commands = argc - 1;
+	int nr=200;
+	struct prinfo buf[200];
+	pid_t target_pid;
 
-	if (argc < 3) {
-		printf("usage: piper ARG1 ARG2 [...]\n");
-		return 1;
+	if (argc < 2) {
+		printf("USAGE: ./test PID\n");
+		return 0;
 	}
 
-	// You always have one less pipe than commands
-	piped_fds = (Pipefd *)malloc( (number_of_commands - 1) * sizeof(Pipefd));
-	create_pipes(piped_fds, number_of_commands - 1);
+	target_pid = (pid_t)atoi(argv[1]);
 
-	pipe_commands(argv, number_of_commands, piped_fds);
+	printf("Print pid tree of: %d\n", target_pid);
+	printf("Asking for %d entries\n", nr);
 
-	close_pipes_range(piped_fds, 0, number_of_commands - 1);
-	wait_for_all_children(number_of_commands);
-
-	return 0;
+	printf("calling syscall 449 - ptree from father\n");
+	syscall(449, &buf, &nr, target_pid);
+	print_buf(buf, nr);
+        return 0;
 }
+
