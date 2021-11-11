@@ -17,17 +17,15 @@ struct prinfo {
 void print_buf(struct prinfo buf[], int size)
 {
 	int i=0;
-	printf("[\n");
 	for(i=0; i<size; i++) {
-		printf("\tparent_pid=%d, pid=%d, state=%ld, uid=%d, comm=%s, level=%d\n",
-				buf[i].parent_pid, buf[i].pid, buf[i].state, buf[i].uid, buf[i].comm, buf[i].level);
+		printf("%d,%s,%d,%d,%ld,%d\n", buf[i].level, buf[i].comm,
+			buf[i].pid, buf[i].parent_pid, buf[i].state, buf[i].uid);
 	}
-	printf("]\n");
 }
 
 int main(int argc, char* argv[]) {
-	int nr=4;
-	struct prinfo buf[4];
+	int nr=200;
+	struct prinfo buf[200];
 	pid_t target_pid;
 
 	if (argc < 2) {
