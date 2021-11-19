@@ -8,12 +8,10 @@
 
 
 int main(int argc, char* argv[]) {
-	long int start = 0x11111111;
-	long int end = 0x222222222;
 	size_t out_size = 0;
 	size_t max_size = 400;
 	char buf[400] = {0};
-	int N=5;
+	int N=5000;
 	void *ptr = NULL;
 
 	ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -23,12 +21,14 @@ int main(int argc, char* argv[]) {
 	}
 	printf("Mapped address: %p\n", ptr);
 
+	printf("Access: first and last page...\n");
+	*(int *)ptr = 10;
+	*(int *)(ptr + (N-1)*sizeof(int)) = 10;
+
 	printf("calling syscall 450 - mapspages\n");
-	out_size = syscall(450, ptr, ptr + N*sizeof(int) + 100, buf, max_size);
-	printf("Got out_size = %ld\n", out_size);
+	out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
 
 	printf("\n ----- Output ----- \n");
-	printf("Got *buf = %s\n", buf);
+	printf("%s\n", buf);
     return 0;
 }
-
