@@ -9,7 +9,8 @@
 #include <signal.h>
 #include "mapspages_tests.h"
 
-#define MAX_BUF_SIZE                2400
+#define MAX_BUF_SIZE                2400000
+#define MAX_CHILDREN                 1000
 #define GET_NUM_PAGES(num_entries)  ((((num_entries) * sizeof(int)) / (double)getpagesize()) + 1)
 #define GET_NUM_ENTRIES(num_pages)  ((int)(((getpagesize() * (num_pages)) / sizeof(int)) - 1))
 #define SLEEP_TIMEOUT               1
@@ -20,8 +21,9 @@
 #endif
 
 static int pages_write_indexes[MAX_BUF_SIZE];
+static pid_t children_to_kill[MAX_CHILDREN];
 
-static int tests_helper(int indexes_len) {
+static int tests_helper(int indexes_len, bool should_unmap) {
     size_t out_size = 0;
 	size_t max_size = MAX_BUF_SIZE;
 	char buf[MAX_BUF_SIZE] = {0};
@@ -54,7 +56,9 @@ static int tests_helper(int indexes_len) {
 	printf("\n ----- Output ----- \n");
 	printf("%s\n", buf);
 
-	munmap ( ptr, N*sizeof(int));
+    if (should_unmap) {
+        munmap ( ptr, N*sizeof(int));
+    }
 
     int count = 0, i = 0;
     while (buf[i] && buf[i] != '.') i++;
@@ -75,9 +79,9 @@ int test1(void) {
     printf("Expecting: '..........'\n");
     printf("num of pages: %d\n", num_of_pages);
     for (int i = 0; i < num_of_pages; i++) {
-        pages_write_indexes[i] = false;
+        pages_write_indexes[i] = 0;
     }
-    return tests_helper(num_of_pages);
+    return tests_helper(num_of_pages, true);
 }
 
 int test2(void) {
@@ -88,10 +92,10 @@ int test2(void) {
     printf("num of pages: %d\n", num_of_pages);
 
     for (int i = 0; i < num_of_pages; i++) {
-        pages_write_indexes[i] = true;
+        pages_write_indexes[i] = 1;
     }
 
-    return tests_helper(num_of_pages);
+    return tests_helper(num_of_pages, true);
 }
 
 int test3(void) {
@@ -103,14 +107,14 @@ int test3(void) {
 
     for (int i = 0; i < num_of_pages; i++) {
         if (i % 2) {
-            pages_write_indexes[i] = true;
+            pages_write_indexes[i] = 1;
         }
         else {
-            pages_write_indexes[i] = false;
+            pages_write_indexes[i] = 0;
         }
     }
 
-    return tests_helper(num_of_pages);
+    return tests_helper(num_of_pages, true);
 }
 
 int test4(void) {
@@ -231,39 +235,81 @@ int test6(void) {
         pages_write_indexes[i] = false;
     }
 
-    return tests_helper(num_of_pages);
+    return tests_helper(num_of_pages, true);
 }
 
-int test7(const char *pattern) {
-    // int N = GET_NUM_ENTRIES(2000);
-    // int num_of_pages = GET_NUM_PAGES(N);
+static inline int hit_page(void *target_page_addr, int amount, int open_processes)
+{
+    int i = 0;
+    pid_t child_pid;
+    for (int i = 0; i < amount; i++) {
+        child_pid = fork();
+        *(int *)(target_page_addr) = 10;
+        if (child_pid == 0) {
+            while(1){};
+        } else {
+            children_to_kill[open_processes + i] = child_pid;
+        }
+    }
+    return i;
+}
 
-    
-    // printf("Expecting: 200*'.'\n");
-    // printf("num of pages: %d\n", num_of_pages);
-
-    // for (int i = 0; i < num_of_pages; i++) {
-    //     pages_write_indexes[i] = false;
-    // }
+int test8(void) {
+    size_t out_size = 0;
+	size_t max_size = 400;
+	char buf[MAX_BUF_SIZE] = {0};
+    char *pattern = "1234..X";
     int N = GET_NUM_ENTRIES(strlen(pattern));
+    int num_of_pages = GET_NUM_PAGES(N);
 	void *ptr = NULL;
     int i = 0;
-    int entries_idx = 0;
+    int total_open_processes = 0;
     ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-    while (pattern && pattern[i]) {
+
+    for (i=0; i<strlen(pattern); i++){
         switch(pattern[i]) {
             case '.':
-                pages_write_indexes[entries_idx] = 0;
+                pages_write_indexes[i] = 0;
                 break;
             case 'X':
-                pages_write_indexes[entries_idx] = 11;
+                pages_write_indexes[i] = 11;
                 break;
             default:
-                pages_write_indexes[entries_idx] = TO_INT(pattern[i]);
+                pages_write_indexes[i] = TO_INT(pattern[i]);
                 break;
         }
-        entries_idx++;
+        total_open_processes += hit_page(ptr + (i * getpagesize()), pages_write_indexes[i], total_open_processes);
     }
 
-    return tests_helper(num_of_pages);
+    sleep(SLEEP_TIMEOUT);
+    out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
+
+    printf("\n ----- Output ----- \n");
+    printf("%s\n", buf);
+
+    for (i=0; i<total_open_processes; i++) {
+        kill(children_to_kill[i], SIGKILL);
+    }
+    printf("Children Killed\n");
+    munmap(ptr, N*sizeof(int));
+    return 0;
+}
+
+int test9(void)
+{
+    int num_of_pages = 240000;
+    int res = 0;
+
+    printf("Expecting: OOM\n");
+    printf("num of pages: %d\n", num_of_pages);
+
+    for (int i = 0; i < num_of_pages; i++) {
+        pages_write_indexes[i] = true;
+    }
+
+    res = tests_helper(num_of_pages, false);
+    res = tests_helper(num_of_pages, false);
+    res = tests_helper(num_of_pages, false);
+    res = tests_helper(num_of_pages, false);
+    while(1){};
 }
