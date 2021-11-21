@@ -18,8 +18,9 @@ int main(int argc, char* argv[]) {
 		test4,
 		test5,
 		test6,
+		//test7,
 		test8,
-		////test9
+		//test9
 		};
 	int tests_stats[MAPSPAGES_TESTS_NUM] = {0};
 	int ret = 0;

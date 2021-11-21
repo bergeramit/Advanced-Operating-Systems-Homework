@@ -288,7 +288,7 @@ int test7(void)
     void *current_esp;
     char * token;
 
-    fp = popen("cat /proc/self/stat", "r");
+    fp = fopen("/proc/self/stat", "r");
     if (fp == NULL) {
         printf("Failed to popen\n");
         return 1;
@@ -306,10 +306,10 @@ int test7(void)
     stack_address = (void *)atol(token);
     printf( "Stack: %p\n", stack_address);
     //current_esp = (void *)__builtin_frame_address(1);
-    current_esp = (void *)__builtin_frame_address(1);
+    current_esp = (void *)getsp();
     printf("Current esp: %p\n", current_esp);
     
-    out_size = syscall(450, stack_address, current_esp, buf, max_size);
+    out_size = syscall(450, current_esp, stack_address, buf, max_size);
     printf("\n ----- Output ----- \n");
     printf("outsize = %ld\n", out_size);
     printf("%s\n", buf);
