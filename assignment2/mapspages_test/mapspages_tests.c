@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -15,6 +16,7 @@
 #define GET_NUM_ENTRIES(num_pages)  ((int)(((getpagesize() * (num_pages)) / sizeof(int)) - 1))
 #define SLEEP_TIMEOUT               1
 #define TO_INT(c)                   ((c) - '0')
+#define START_STACK_INDEX           27
 
 #ifndef DEBUG_EN
 #define DEBUG_EN    1
@@ -22,6 +24,21 @@
 
 static int pages_write_indexes[MAX_BUF_SIZE];
 static pid_t children_to_kill[MAX_CHILDREN];
+
+int print_maps(void *start, void *end)
+{
+    size_t out_size = 0;
+	size_t max_size = 400;
+	char buf[MAX_BUF_SIZE] = {0};
+
+    out_size = syscall(450, start, end, buf, max_size);
+    printf("\n ----- Output ----- \n");
+    printf("out_size = %ld\n", out_size);
+    printf("%s\n", buf);
+
+    return 0;
+}
+
 
 static int tests_helper(int indexes_len, bool should_unmap) {
     size_t out_size = 0;
@@ -50,11 +67,7 @@ static int tests_helper(int indexes_len, bool should_unmap) {
         }
     }
 
-	printf("calling syscall 450 - mapspages\n");
-	out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, MAX_BUF_SIZE);
-
-	printf("\n ----- Output ----- \n");
-	printf("%s\n", buf);
+    print_maps(ptr, ptr + N*sizeof(int));
 
     if (should_unmap) {
         munmap ( ptr, N*sizeof(int));
@@ -242,6 +255,7 @@ static inline int hit_page(void *target_page_addr, int amount, int open_processe
 {
     int i = 0;
     pid_t child_pid;
+
     for (int i = 0; i < amount; i++) {
         child_pid = fork();
         *(int *)(target_page_addr) = 10;
@@ -254,7 +268,57 @@ static inline int hit_page(void *target_page_addr, int amount, int open_processe
     return i;
 }
 
-int test8(void) {
+uint64_t getsp( void )
+{
+    uint64_t sp;
+    asm( "mov %%rsp, %0" : "=rm" ( sp ));
+    return sp;
+}
+
+int test7(void)
+{
+    FILE *fp;
+    int status;
+    int i = 0;
+    size_t out_size = 0;
+	size_t max_size = 400;
+	char buf[MAX_BUF_SIZE] = {0};
+    char values[500];
+    void *stack_address;
+    void *current_esp;
+    char * token;
+
+    fp = popen("cat /proc/self/stat", "r");
+    if (fp == NULL) {
+        printf("Failed to popen\n");
+        return 1;
+    }
+
+    fgets(values, 500, fp);
+    printf("%s\n", values);
+
+    token = strtok(values, " ");
+    // loop through the string to extract all other tokens
+    while( token != NULL && i != START_STACK_INDEX) {
+        token = strtok(NULL, " ");
+        i++;
+    }
+    stack_address = (void *)atol(token);
+    printf( "Stack: %p\n", stack_address);
+    //current_esp = (void *)__builtin_frame_address(1);
+    current_esp = (void *)__builtin_frame_address(1);
+    printf("Current esp: %p\n", current_esp);
+    
+    out_size = syscall(450, stack_address, current_esp, buf, max_size);
+    printf("\n ----- Output ----- \n");
+    printf("outsize = %ld\n", out_size);
+    printf("%s\n", buf);
+
+    pclose(fp);
+}
+
+int test8(void)
+{
     size_t out_size = 0;
 	size_t max_size = 400;
 	char buf[MAX_BUF_SIZE] = {0};
@@ -282,10 +346,7 @@ int test8(void) {
     }
 
     sleep(SLEEP_TIMEOUT);
-    out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
-
-    printf("\n ----- Output ----- \n");
-    printf("%s\n", buf);
+    print_maps(ptr, ptr + N*sizeof(int));
 
     for (i=0; i<total_open_processes; i++) {
         kill(children_to_kill[i], SIGKILL);
