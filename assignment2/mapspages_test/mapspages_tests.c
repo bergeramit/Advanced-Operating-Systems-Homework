@@ -1,3 +1,4 @@
+#define _GNU_SOURCE  
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,7 @@
 #include <sys/types.h>
 #include <stdbool.h>
 #include <sys/mman.h>
+#include <sched.h>
 #include <string.h>
 #include <signal.h>
 #include "mapspages_tests.h"
@@ -42,6 +44,7 @@ int print_maps(void *start, void *end)
 
 static int tests_helper(int indexes_len, bool should_unmap) {
     size_t out_size = 0;
+    pid_t child_pid;
 	size_t max_size = MAX_BUF_SIZE;
 	char buf[MAX_BUF_SIZE] = {0};
 	int N = GET_NUM_ENTRIES(indexes_len);
@@ -70,7 +73,7 @@ static int tests_helper(int indexes_len, bool should_unmap) {
     print_maps(ptr, ptr + N*sizeof(int));
 
     if (should_unmap) {
-        munmap ( ptr, N*sizeof(int));
+        munmap( ptr, N*sizeof(int));
     }
 
     int count = 0, i = 0;
@@ -148,93 +151,30 @@ int test4(void) {
     	return 1;
 	}
 	printf("Mapped address: %p\n", ptr);
-
 	printf("calling syscall 450 - mapspages\n");
-    child_pid = fork();
 
-    if (child_pid == 0) {
-        for (int i = 0; i < num_of_pages; i++) {
-            if (i < 5) {
-                *(int *)(ptr + (i * getpagesize())) = 10;
-            }
+    for (int i = 0; i < num_of_pages; i++) {
+        if (i < 5) {
+            *(int *)(ptr + (i * getpagesize())) = 10;
         }
-	    // out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
-        while(1){};
     }
-    else {
-        for (int i = 0; i < num_of_pages; i++) {
-            if (i < 5) {
-                *(int *)(ptr + (i * getpagesize())) = 10;
-            }
-        }
 
-        sleep(SLEEP_TIMEOUT);
-        out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
+    sleep(SLEEP_TIMEOUT);
+    out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
 
-        printf("\n ----- Output ----- \n");
-        printf("%s\n", buf);
-        
-        kill(child_pid, SIGKILL);
-        wait(NULL);
-
-        munmap (ptr, N*sizeof(int));
-    }
+    printf("\n ----- Output ----- \n");
+    printf("%s\n", buf);
+    munmap (ptr, N*sizeof(int));
 
 	return 0;
 }
 
-int test5(void) {
-    size_t out_size = 0;
-	size_t max_size = 400;
-	char buf[MAX_BUF_SIZE] = {0};
-	int N = GET_NUM_ENTRIES(10);
-	void *ptr = NULL;
-    int num_of_pages = GET_NUM_PAGES(N);
-    pid_t child_pid;
-
-    printf("Expecting: '1111..2222'\n");
-    printf("num of pages: %d\n", num_of_pages);
-
-    ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	if (ptr == MAP_FAILED) {
-    	printf("Mapping Failed\n");
-    	return 1;
-	}
-	printf("Mapped address: %p\n", ptr);
-
-	printf("calling syscall 450 - mapspages\n");
-    child_pid = fork();
-
-    if (child_pid == 0) {
-        for (int i = 0; i < num_of_pages; i++) {
-            if (i >= 6) {
-                *(int *)(ptr + (i * getpagesize())) = 10;
-            }
-        }
-	    // out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
-        while(1){};
+int touch_current_page(void *ptr)
+{
+    for (int i = 6; i < 10; i++) {
+        *(int *)(ptr + (i * getpagesize())) = 10;
     }
-    else {
-        for (int i = 0; i < num_of_pages; i++) {
-            if (i != 4 && i != 5) {
-                *(int *)(ptr + (i * getpagesize())) = 10;
-            }
-        }
-
-        sleep(SLEEP_TIMEOUT);
-
-        out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
-
-        printf("\n ----- Output ----- \n");
-        printf("%s\n", buf);
-        
-        kill(child_pid, SIGKILL);
-        wait(NULL);
-
-        munmap (ptr, N*sizeof(int));
-    }
-
-	return 0;
+    while(1){};
 }
 
 int test6(void) {
@@ -249,23 +189,6 @@ int test6(void) {
     }
 
     return tests_helper(num_of_pages, true);
-}
-
-static inline int hit_page(void *target_page_addr, int amount, int open_processes)
-{
-    int i = 0;
-    pid_t child_pid;
-
-    for (int i = 0; i < amount; i++) {
-        child_pid = fork();
-        *(int *)(target_page_addr) = 10;
-        if (child_pid == 0) {
-            while(1){};
-        } else {
-            children_to_kill[open_processes + i] = child_pid;
-        }
-    }
-    return i;
 }
 
 uint64_t getsp( void )
@@ -317,33 +240,69 @@ int test7(void)
     pclose(fp);
 }
 
+void hit_by_pattern(void *ptr, int num_of_pages)
+{
+    int i = 0, max=0;
+    pid_t child_pid;
+
+    for (i = 0; i < num_of_pages; i++) {
+        if (pages_write_indexes[i] > max) {
+            max = pages_write_indexes[i];
+        }
+    }
+
+    while (max > 0) {
+        for (i = 0; i < num_of_pages; i++) {
+            if (pages_write_indexes[i] == max) {
+                *(int *)(ptr + (i * getpagesize())) = 10;
+            }
+        }
+
+        if (max == 1) {
+            // no need to execute anymore
+            break;
+        }
+
+        child_pid = fork();
+        if (child_pid == 0) {
+            while(1){};
+            exit(1);
+        }
+        max--;
+    }
+
+    return;
+}
+
 int test8(void)
 {
     size_t out_size = 0;
 	size_t max_size = 400;
 	char buf[MAX_BUF_SIZE] = {0};
-    char *pattern = "1234..X";
+    char *pattern = "123413..x";
     int N = GET_NUM_ENTRIES(strlen(pattern));
     int num_of_pages = GET_NUM_PAGES(N);
 	void *ptr = NULL;
     int i = 0;
     int total_open_processes = 0;
-    ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    ptr = mmap ( NULL , N*sizeof(int), PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
+    printf("Executing: %s\n", pattern);
     for (i=0; i<strlen(pattern); i++){
         switch(pattern[i]) {
             case '.':
                 pages_write_indexes[i] = 0;
                 break;
-            case 'X':
-                pages_write_indexes[i] = 11;
+            case 'x':
+                pages_write_indexes[i] = 10;
                 break;
             default:
                 pages_write_indexes[i] = TO_INT(pattern[i]);
                 break;
         }
-        total_open_processes += hit_page(ptr + (i * getpagesize()), pages_write_indexes[i], total_open_processes);
     }
+
+    hit_by_pattern(ptr, num_of_pages);
 
     sleep(SLEEP_TIMEOUT);
     print_maps(ptr, ptr + N*sizeof(int));
@@ -373,4 +332,53 @@ int test9(void)
     res = tests_helper(num_of_pages, false);
     res = tests_helper(num_of_pages, false);
     while(1){};
+}
+
+int test5(void)
+{
+    size_t out_size = 0;
+	size_t max_size = 400;
+	char buf[MAX_BUF_SIZE] = {0};
+	int N = GET_NUM_ENTRIES(10);
+	void *ptr = NULL;
+    void *child_ptr = NULL;
+    int num_of_pages = GET_NUM_PAGES(N);
+    pid_t child_pid;
+
+    printf("Expecting: '1111..2222'\n");
+    printf("num of pages: %d\n", num_of_pages);
+
+    ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	if (ptr == MAP_FAILED) {
+    	printf("Mapping Failed\n");
+    	return 1;
+	}
+
+	printf("Mapped address: %p\n", ptr);
+	printf("calling syscall 450 - mapspages\n");
+
+    for (int i = 6; i < num_of_pages; i++) {
+        *(int *)(ptr + (i * getpagesize())) = 10;
+    }
+
+    child_pid = fork();
+    if (child_pid == 0) {
+        while(1){};
+    }
+
+    for (int i = 0; i < 4; i++) {
+        *(int *)(ptr + (i * getpagesize())) = 10;
+    }
+
+    sleep(SLEEP_TIMEOUT);
+    out_size = syscall(450, ptr, ptr + N*sizeof(int), buf, max_size);
+
+    printf("\n ----- Output ----- \n");
+    printf("%s\n", buf);
+    
+    kill(child_pid, SIGKILL);
+    wait(NULL);
+
+    munmap (ptr, N*sizeof(int));
+	return 0;
 }

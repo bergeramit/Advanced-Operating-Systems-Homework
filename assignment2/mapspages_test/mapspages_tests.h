@@ -1,7 +1,7 @@
 #ifndef _MAPSPAGES_TESTS_
 #define _MAPSPAGES_TESTS_
 
-#define MAPSPAGES_TESTS_NUM 7
+#define MAPSPAGES_TESTS_NUM 1
 
 typedef int (*testfunc)(void);
 
