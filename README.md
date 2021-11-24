@@ -44,4 +44,11 @@ Answered in file Q2_solution.md
 will submit its own
 
 ## The second part (together) is submitted using git
-==TODO: Guy complete this readme - same as assignment 1 prob==
+
+For testing: https://github.com/bergeramit/Advanced-Operating-Systems-Homework.git (under assignment2/mapspages_test/)
+```
+make test
+# Running tests 1-9 (without 7). Test 8 expects an input pattern or the letter 'd' to use default ('123413..x').
+```
+
+For linux changes and kernel module: https://github.com/bergeramit/Linux_for_Advance_OS_HW.git
