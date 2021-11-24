@@ -11,41 +11,61 @@
 #define TEST_STATUS_IDX	1
 
 int main(int argc, char* argv[]) {
+
+	int test = 1;
+	int ret;
+	char pattern[MAX_PATTERN_LEN] = {0};
+	char default_pattern[MAX_PATTERN_LEN] = {'1', '2', '3', '4', '1', '3', '.', '.', 'x'};
+
+	if (argc != 2 || strlen(argv[1]) > 1) {
+		printf("No test to run...\nTo run all tests: make test\nTo run a single test: ./test [1-9]\n");
+		return 1;
+	}
+
+	test = TO_INT(argv[1][0]);
+	
+	if (test < 1 || test > 9) {
+		printf("Invalid test num...\nTo run all tests: make test\nTo run a single test: ./test [1-9]\n");
+		return 1;
+	}
+
+	if (test == 7) {
+		printf("Test 7 isn't implemented, skipping...\n");
+		return 0;
+	}
+
+	if (test == 9) {
+		/* Adjusted for index */
+		test = 7;
+	}
+
 	testfunc tests[MAPSPAGES_TESTS_NUM] = {
-		//test1, V
-		//test2, V
-		//test3, V
-		//test4, V
-		//test5, V
-		//test6, V
-		//test7, ?
-		test8,
-		//test9 V
+		test1,
+		test2,
+		test3,
+		test4,
+		test5,
+		test6,
+		test9
 		};
-	int tests_stats[MAPSPAGES_TESTS_NUM] = {0};
-	int ret = 0;
 
-	printf("\n ----- Starting all tests ----- \n");
-	for (int i = 0; i < MAPSPAGES_TESTS_NUM; i++) {
-		printf("Starting test %d...\n\n", i + 1);
-		ret = tests[i]();
-		tests_stats[i] = ret;
-		if (ret != 0) {
-			// printf("Test failed with return value: %d\n", ret);
-			break;
+	if (test == 8) {
+		printf("Insert a pattern for test 8 or enter 'd' for default (123413..x): ");
+		scanf("%s", pattern);
+		if (pattern[0] == 'd') {
+			ret = test8(default_pattern);
+		}
+		else {
+			ret = test8(pattern);
 		}
 	}
-
-	for (int i = 0; i < MAPSPAGES_TESTS_NUM; i++) {
-		printf("Test %d finished with retval: %d (%s)\n",
-			i + 1,
-			tests_stats[i],
-			tests_stats[i] == 0 ? "SUCCESS" : "FAILED");
-		if (tests_stats[i] != 0) {
-			break;
-		}
+	else {
+		ret = tests[test - 1]();
 	}
+	printf("Test %d finished with retval: %d (%s)\n",
+	test,
+	ret,
+	ret == 0 ? "SUCCESS" : "FAILED");
 
-
-    return 0;
+    return ret;
 }

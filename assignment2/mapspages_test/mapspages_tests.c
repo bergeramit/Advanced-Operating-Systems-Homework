@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <sched.h>
-#include <string.h>
 #include <signal.h>
 #include "mapspages_tests.h"
 
@@ -17,7 +16,6 @@
 #define GET_NUM_PAGES(num_entries)  ((((num_entries) * sizeof(int)) / (double)getpagesize()) + 1)
 #define GET_NUM_ENTRIES(num_pages)  ((int)(((getpagesize() * (num_pages)) / sizeof(int)) - 1))
 #define SLEEP_TIMEOUT               1
-#define TO_INT(c)                   ((c) - '0')
 #define START_STACK_INDEX           27
 
 #ifndef DEBUG_EN
@@ -274,12 +272,11 @@ void hit_by_pattern(void *ptr, int num_of_pages)
     return;
 }
 
-int test8(void)
+int test8(char *pattern)
 {
     size_t out_size = 0;
 	size_t max_size = 400;
 	char buf[MAX_BUF_SIZE] = {0};
-    char *pattern = "123413..x";
     int N = GET_NUM_ENTRIES(strlen(pattern));
     int num_of_pages = GET_NUM_PAGES(N);
 	void *ptr = NULL;
