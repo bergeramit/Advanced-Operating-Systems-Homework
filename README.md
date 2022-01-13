@@ -155,7 +155,7 @@ pdpt -> vm->mem + 0x3000
 pd -> vm->mem + 0x4000
 ```
 
-#### The guest stack
+#### The guest stack (assume "long" mode)
 
 Is set in the run_long_mode fucntion using the regs struct (struct kvm_regs) to set the regs.rsp - which is the guests stack pointer to be:
 ```
@@ -169,8 +169,104 @@ Guest stack address: 2 << 20
 
 ### (a.4) Examine the guest page table. How many levels does it have? How many pages does it occupy? Describe the guest virtual-to-physical mappings: what part(s) of the guest virtual address space is mapped, and to where?
 
-#### How many levels does it have?
+#### How many levels does it have? (assume "long" mode)
+
+It has 4 levels. We can see that by looking at the setup_long_mode function:
+```
+uint64_t pml4_addr = 0x2000;
+uint64_t *pml4 = (void *)(vm->mem + pml4_addr);
+
+uint64_t pdpt_addr = 0x3000;
+uint64_t *pdpt = (void *)(vm->mem + pdpt_addr);
+
+uint64_t pd_addr = 0x4000;
+uint64_t *pd = (void *)(vm->mem + pd_addr);
+```
+We got the top (and single) pml4 (Page Map Level 4) after that we can access the pdpt (Page Directory Pointer Table) followed by the pd (page directory) to access a single specific page.
 
 
 ### For both (a.3) and (a.4), illustrate/visualize the hypervisor memory layout and the guest page table structure and address translation. (Preferably in text form).
+
+For the guest address translation:
+
+We first access the pml4 table located at address: 
+```
+vm->mem + 0x2000
+```
+this has only one non-empty entry (the first entry) - pml4[0]
+This includes bits 39-47
+
+
+We then follow through to the index in the pdpt at address:
+```
+vm->mem + 0x3000
+```
+Only non-empty is again the first entry which directs to the pd table - pdpt[0]
+This includes the followed 9 bits
+
+We the follow to the pd table at address:
+```
+vm->mem + 0x4000
+```
+Again to the first and only non-empty entry that contains the address 0 - pd[0]
+
+Because of the PAE the zero address is the guest physical address - 0 -> which we mapped with the start of the code!
+
+This guest physical will translate into the host virtual address:
+```
+vm->mem
+```
+
+### (a.5) At what (guest virtual) address does the guest start execution? Where is this address configured?
+
+This was answered in the previous question - we configure the start of the execution at the guest **virtual address 0** inside run_long_mode
+```
+regs.rip = 0;
+```
+Then we access the 4 level page table hirarchy just to end up in the **guest physical address 0** which is vm->mem (from previous question). There lies the begining of the guest.c binary code, we can see that in run_long_mode:
+```
+memcpy(vm->mem, guest64, guest64_end-guest64);
+```
+
+### (a.6) What port number does the guest use? How can the hypervisor know the port number, and read the value written? Which memory buffer is used for this value? How many exits occur during this print?
+
+#### What port number does the guest use?
+The guest used the 0xE9 port number - as it is specified in line 15, in guest.c:
+```
+outb(0xE9, *p);
+```
+Which is later used in the command outb where the 0xE9 is the port number argument.
+
+#### How can the hypervisor know the port number, and read the value written?
+
+When the host tries to access the IO port, a functionality that needs to be supplied by the user (host), there is a call to vmexit with the apropriate values in vcpu->kvm_run.
+Then the host (user) can look to see whether the io port was 0xE9 by accessing the value in:
+```
+vcpu->kvm_run->io.port
+``` 
+After that it can access the data_offset to get the actual value that was send to that IO port by calculating the address:
+```
+vcpu->kvm_run + vcpu->kvm_run->io.data_offset
+```
+
+This results in the data that the guest tried to send to that port.
+
+#### Which memory buffer is used for this value?
+
+The 
+
+#### How many exits occur during this print?
+
+We can see in the guest that every charecter is printed separately and so we will exit == the length of the string "Hello, world!\n" (14)
+
+### (a.7) At what guest virtual (and physical?) address is the number 42 written? And how (and where) does the hypervisor read it?
+
+The guest wrote the address to the virtual address 0x400,
+which is the guest physical address vm->mem + 0x400 which is also the host virtual.
+
+The hypervisor reads this by accessing:
+```
+vm->mem[0x400]
+```
+inside the function run_vm under the check label, in line 204.
 
