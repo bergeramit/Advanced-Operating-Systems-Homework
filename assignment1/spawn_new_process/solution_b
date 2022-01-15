@@ -1,5 +1,0 @@
-The "ps aux" would run and because it is the first in the piped order, the follow grep pizza command will not run yet.
-The output of ps aux will be redirected to the stdin of the next command in line - the "grep" comamnd.
-The grep command in turn will read from stdin to try and find the word pizza-margarita in it, at the moment the grep
-command tries to read from stdin, the grep process is already running and so, the snapshot of ps at that moment will
-contain the grep pizza command as well -> and will be returned as stdin to grep, which will makr this result.
