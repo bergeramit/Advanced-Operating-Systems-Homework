@@ -270,3 +270,41 @@ vm->mem[0x400]
 ```
 inside the function run_vm under the check label, in line 204.
 
+
+## (2) Containers and namespaces
+
+
+### (a) Describe the process hierarchy produced by the sequence of commands in the "child shell" column. How can it be minimized, and what would the hierarchy look like?
+
+The sequence commands in the child shell:
+1. unshare -U --kill-child /bin/bash -> creates a new user namespace and running bash inside this container
+2. echo "my-user-ns" > /proc/$$/comm -> naming this process "my-user-ns". Because we used the --kill-child we will fork the newly created ns and run bash in the child. Also, when we terminate this ns the child to be killed
+3. id -> view the new user namespace
+4. unshare --ipc --uts --kill-child /bin/bash -> creates ipc and uts namespaces and running bash inside this new container - with the user namespace already configured. Because we used the --kill-child we will fork the newly created ns and run bash in the child. Also, when we terminate this ns the child to be killed
+5. hostname isolated -> only changes the hostname of the current uts namespace
+6. unshare --net --kill-child /bin/bash ->  creates a new network namespace and running bash inside this container (with all previous ns already configured). Because we used the --kill-child we will fork the newly created ns and run bash in the child. Also, when we terminate this ns the child to be killed
+7. echo "my-net-ns" > /proc/$$/comm -> naming this process "my-net-ns"
+8. ip link set lo up && ip link set peer0 up && ip addr add 10.11.12.14/24 dev peer0 -> set up virtual interface peer0
+9. unshare --pid --mount --fork --kill-child /bin/sh -> creates a new pid and mount namespaces and running sh inside this container (with all previous ns already configured). Because we used the --kill-child we will fork the newly created ns and run bash in the child. Also, when we terminate this ns the child to be killed
+
+### (b) What would happen if you change the order of namespace creation, e.g. run unshare --ipc first? And what would happen if you defer lines 12-13 until a later time?
+
+If we had done the --ipc first we will not be able to set the child as a root user because when we ran:
+```
+sudo bash -c 'echo "0 1000 1000" > /proc/5918/uid_map'
+sudo bash -c 'echo "0 1000 1000" > /proc/5918/gid_map'
+```
+to set the uid and gid of the child to root, **we are sending IPC** to the child's process which means, we have to be in the same ipc ns to receive these changes.
+This means that running lines 12-13 later will have no effect on the child's process
+
+### (c) What is the purpose of line 4 and lines 9-10 (and similarly, line 27 and lines 29-30)? Why are they needed?
+
+These lines make it so we would know for sure which bash is the target child's process. By changing the name of the process we can identify it from the others and can manage it from the parent shell.
+
+### (d) Describe how to undo and cleanup the commands above. (Note: there is more than one way; try to find the minimal way). Make sure there are no resources left dangling around.
+
+= ============
+
+
+### (e) Test your program. Does it require root privileges? If so, then why? How can it be changed to not require these privileges?
+
