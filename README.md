@@ -55,13 +55,35 @@ For linux changes and kernel module: https://github.com/bergeramit/Linux_for_Adv
 
 # Assignment 3
 
+## The First part - individualy
 
+### Amit Berger
+I placed my answers in the repo under:
+```
+Advanced-Operating-Systems-Homework/assignment3/individual_problems.md
+```
+
+### Guy Berger
+will submit its own
 
 ## The second part (together) is submitted using git
 
-I am using the https://github.com/purplewall1206/kvm-hello-world.git in the commit:
+I am using the https://github.com/purplewall1206/kvm-hello-world.git in the commit, for the questions:
 ```
 d1e765f21e2b8b242d3f26037740c1c98f0c14e0
+```
+For the programming assignment I have forked the kvm-hello-world into my repo:
+```
+https://github.com/bergeramit/kvm-hello-world.git
+```
+I added two tags:
+1. for the assignment without 2 vCPU (sections (e)):
+```
+assignment3_without_question_e
+```
+2. for the (e) assignment - **including the bonus**
+```
+assignment_3_e_bonus
 ```
 
 ### (a.1) What is the size of the guest (physical) memory? How and where in the code does the hypervisor allocate it? At what host (virtual) address is this memory mapped?
@@ -303,8 +325,9 @@ These lines make it so we would know for sure which bash is the target child's p
 
 ### (d) Describe how to undo and cleanup the commands above. (Note: there is more than one way; try to find the minimal way). Make sure there are no resources left dangling around.
 
-= ============
+= = = = = = = = = = = = =
 
 
 ### (e) Test your program. Does it require root privileges? If so, then why? How can it be changed to not require these privileges?
+
 
