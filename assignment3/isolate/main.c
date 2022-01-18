@@ -34,7 +34,7 @@ void setup_userns(pid_t child_pid) {
     char setgroups_path[200] = {0};
     int uid_fd, gid_fd, rc, setgroups_fd;
 
-    printf("Child's PID: %d\n", child_pid);
+    // printf("Child's PID: %d\n", child_pid);
     snprintf(setgroups_path, 200, "/proc/%d/setgroups", child_pid);
     sprintf(uid_path, "/proc/%d/uid_map", child_pid);
     sprintf(gid_path, "/proc/%d/gid_map", child_pid);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
     setup_userns(pid);
     setup_netns(pid);
-    printf("Done setting setup_userns + setup_netns\n");
+    // printf("Done setting setup_userns + setup_netns\n");
     
     write(child_args.fd[1], &pid, sizeof(int));
     close(child_args.fd[1]);
