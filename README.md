@@ -266,7 +266,7 @@ Then the host (user) can look to see whether the io port was 0xE9 by accessing t
 ```
 vcpu->kvm_run->io.port
 ``` 
-After that it can access the data_offset to get the actual value that was send to that IO port by calculating the address:
+After that it can access the data_offset to get the actual value that was sent to that IO port by calculating the address:
 ```
 vcpu->kvm_run + vcpu->kvm_run->io.data_offset
 ```
@@ -275,7 +275,14 @@ This results in the data that the guest tried to send to that port.
 
 #### Which memory buffer is used for this value?
 
-The 
+The memory buffer used is the first byte of the memory mapped to the kvm->run: request_interrupt_window
+```
+struct kvm_run {
+	/* in */
+	__u8 request_interrupt_window;
+	...
+}
+```
 
 #### How many exits occur during this print?
 
@@ -292,9 +299,7 @@ vm->mem[0x400]
 ```
 inside the function run_vm under the check label, in line 204.
 
-
 ## (2) Containers and namespaces
-
 
 ### (a) Describe the process hierarchy produced by the sequence of commands in the "child shell" column. How can it be minimized, and what would the hierarchy look like?
 
@@ -325,8 +330,44 @@ These lines make it so we would know for sure which bash is the target child's p
 
 ### (d) Describe how to undo and cleanup the commands above. (Note: there is more than one way; try to find the minimal way). Make sure there are no resources left dangling around.
 
-= = = = = = = = = = = = =
+(5,6)
+To undo the mounting:
+```
+umount /proc
+```
+The pidns and mntns created by unshare can be torn down by killing the /bin/bash process, from the child shell by 'exit' command because unshare was used with --kill-child + --pid which safely terminates the process tree below unshare.
+
+(4)
+Next we need to remove the network inferface from of the child shell from the parent's.
+The current child shell can 'exit' to the parent's shell. The parent shell needs to remove the interface by:
+```
+sudo ip addr del 10.11.12.13/24 dev veth0
+sudo ip link set veth0 down
+sudo ip link delete veth0
+```
+
+(2,3)
+No need to change anything, 'exit'
+
+(1)
+Since we don't allocate any persisting resources when performing line 3, we can safely
+```
+exit
+```
+from the last shell, returning to the original state.
 
 ### (e) Test your program. Does it require root privileges? If so, then why? How can it be changed to not require these privileges?
 
+The program does require root privileges because the host (parent process) is the one trying to add network interfaces and mount fs, then he must be root to do it.
+If we first clone a child process A and assign it uid, gid of root "0 1000 1000" and then use this child A as the one runnning the proram, then in its namespace it will be able to set_netns, set_mntns with "root" priviledges.
+Basically we would wrap our isolate program and execute it in an isolated environment.
 
+This is similiar to what is done in:
+```
+unshare --ipc --uts --kill-child /bin/bash
+```
+This operation also does not require root permissions *only after* we alter the process running this command to be
+```
+uid=0(root) gid=0(root) groups=0(root),65534(nogroup)
+```
+in lines 12,13.
