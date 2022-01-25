@@ -72,8 +72,12 @@ The Antfarm solution focuses on monitoring the processes of the Guest by monitor
         - If there wasn't a reuse we can estimate the process terminated if we did not see the page table access for a long time
 
 The use of EPT/NPT solution in order to track process creationg, context switches and process exit will effect the solution in the following ways:
-1. The "master TLB" (Extended caches) that manages both the gVA->gPA and the gPA->hPA. Because of this approach there will not by any VM-exits due to guest page faults, INVLPG or CR3 changes - which poses a threat to the Antfarm monitoring solution. So in order to track Process Creation and Context Switch we cannot rely on VM-exits anymore and would need to monitor the TLB misses instead:
-    <!-- 1. Process Creation - TLB miss with a new gVA entries (with no previous mapping)
-    2. Context Switch - TLB miss with an already present gVA (but not in the TLB)
-    3. Process Exit - TLB miss with a  -->
-2. Downside to this approach is that we will need to handle a lot of work when we have a TLB miss (as we discussed in class)
+1. The "master TLB" (Extended caches) that manages both the gVA->gPA and the gPA->hPA. Because of this approach there will not be any VM-exits due to guest virtual page faults, INVLPG or CR3 changes - which poses a threat to the Antfarm monitoring solution. So in order to track Process Creation and Context Switch we cannot rely on VM-exits anymore and would need to monitor the TLB misses instead:
+    1. Process Creation
+        - TLB miss with a new gVA entries (with no previous mapping)
+        - page fault due to gPA missing (with no previous mapping)
+    3. Context Switch - TLB miss with an already present gVA (but not in the TLB)
+    5. Process Exit - If we haven't seen specific address spaces for a long time we can infer that the process assosiated with thie address space terminated
+3. We would also be able to identify the mapping between different VMs as this is also saved in the master TLB (and so we can track multiple processes on multiple VMs in a single page table)
+4. This approach provides a noticeable improvement in the amount of page faults and overhead required compared to the shadow approach
+5. Downside to this approach is that we will need to handle a lot of work when we have a TLB miss (as we discussed in class)
