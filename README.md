@@ -60,13 +60,14 @@ For linux changes and kernel module: https://github.com/bergeramit/Linux_for_Adv
 ### Amit Berger
 I placed my answers in the repo under:
 ```
-Advanced-Operating-Systems-Homework/assignment3/individual_problems.md
+https://github.com/bergeramit/Advanced-Operating-Systems-Homework/assignment3/individual_problems.md
 ```
 
 ### Guy Berger
 will submit its own
 
 ## The second part (together) is submitted using git
+(Also is placed in multiple places including the repo of this readme: https://github.com/bergeramit/Advanced-Operating-Systems-Homework/assignment3/ )
 
 I am using the https://github.com/purplewall1206/kvm-hello-world.git in the commit, for the questions:
 ```
